@@ -1,16 +1,42 @@
-# React + Vite
+# Sales CRM Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Küçük satış ekipleri için geliştirilmiş CRM uygulamasının React arayüzü. Müşteri adaylarını, müşteri şirketlerini, satış fırsatlarını ve teklifleri tek yerden takip etmeyi sağlar.
 
-Currently, two official plugins are available:
+> Backend, Morphosium'daki yaz stajım sırasında 3 kişilik ekiple geliştirildi (deals ve offers modülleri bana aittir). Bu frontend'in tamamını tek başıma yazdım.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Özellikler
 
-## React Compiler
+- JWT ile giriş / kayıt (çok kiracılı yapı: her şirketin verisi izole)
+- **Müşteri adayları:** listeleme, arama, ekleme, silme, satış fırsatına dönüştürme
+- **Müşteri şirketleri:** listeleme, arama, ekleme, silme
+- **Satış fırsatları:** aşama aşama ilerletme, detay sayfası, bağlı teklifler
+- **Teklifler:** oluşturma, kabul/red (kabul edilince fırsat otomatik "kazanıldı" olur)
+- Dashboard: özet istatistik kartları
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Teknolojiler
 
-## Expanding the ESLint configuration
+React, Vite, Material UI (MUI), React Router, Axios
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Kurulum
+
+Önce backend'in çalışıyor olması gerekir (Node.js, Express, PostgreSQL), varsayılan adres `http://localhost:3000`.
+
+```bash
+git clone https://github.com/Begum219/sales-crm-frontend.git
+cd sales-crm-frontend
+npm install
+npm run dev
+```
+
+Uygulama `http://localhost:5173` adresinde açılır.
+
+## Ekran Görüntüleri
+
+(Buraya 3-4 görsel eklenecek ilerledikçe)
+
+## Yapılacaklar
+
+- Kayıt düzenleme formları
+- İlgili kişiler ve iletişim kayıtları
+- Sayfalama ve filtreler
+- Docker ve canlı yayın
