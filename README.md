@@ -39,4 +39,3 @@ Uygulama `http://localhost:5173` adresinde açılır.
 - Kayıt düzenleme formları
 - İlgili kişiler ve iletişim kayıtları
 - Sayfalama ve filtreler
-- Docker ve canlı yayın
