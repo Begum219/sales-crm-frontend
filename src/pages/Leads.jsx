@@ -22,22 +22,38 @@ import {
   IconButton,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import leadService from '../services/leadService';
 import dealService from '../services/dealService';
 import customerService from '../services/customerService';
+
+const EMPTY_FORM = {
+  name: '',
+  source: '',
+  email: '',
+  phone: '',
+  type: 'company',
+  status: 'new',
+};
+
+const TYPE_LABELS = { company: 'Şirket', individual: 'Şahıs' };
+const STATUS_LABELS = {
+  new: 'Yeni',
+  contacted: 'İletişime Geçildi',
+  qualified: 'Nitelikli',
+  converted: 'Dönüştürüldü',
+  lost: 'Kaybedildi',
+};
+// "converted" durumu sadece fırsata dönüştürme ile atanır, formda seçilemez
+const EDITABLE_STATUSES = ['new', 'contacted', 'qualified', 'lost'];
 
 function Leads() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
-  const [form, setForm] = useState({
-    name: '',
-    source: '',
-    email: '',
-    phone: '',
-    type: 'company',
-  });
+  const [editingId, setEditingId] = useState(null); // null = yeni, sayı = düzenleme
+  const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -80,20 +96,59 @@ function Leads() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleCreate = async (e) => {
+  const openCreateDialog = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setFormError('');
+    setOpenDialog(true);
+  };
+
+  const openEditDialog = (lead) => {
+    setEditingId(lead.id);
+    setForm({
+      name: lead.name || '',
+      source: lead.source || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      type: lead.type || 'company',
+      status: lead.status || 'new',
+    });
+    setFormError('');
+    setOpenDialog(true);
+  };
+
+  const closeDialog = () => {
+    setOpenDialog(false);
+    setEditingId(null);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+
+    // Boş alanları göndermiyoruz (backend boş e-posta/telefonu reddeder).
+    // Yeni kayıtta status göndermiyoruz, backend varsayılanı 'new' yapıyor.
+    const payload = {};
+    Object.entries(form).forEach(([key, value]) => {
+      if (value === '') return;
+      if (!editingId && key === 'status') return;
+      payload[key] = value;
+    });
+
     try {
-      await leadService.create(form);
-      setOpenDialog(false);
-      setForm({ name: '', source: '', email: '', phone: '', type: 'company' });
+      if (editingId) {
+        await leadService.update(editingId, payload);
+      } else {
+        await leadService.create(payload);
+      }
+      closeDialog();
       fetchLeads();
     } catch (err) {
       const data = err.response?.data;
       if (data?.errors?.length) {
         setFormError(data.errors.map((e) => e.message).join(', '));
       } else {
-        setFormError(data?.message || 'Kayıt eklenemedi.');
+        setFormError(data?.message || 'İşlem başarısız.');
       }
     }
   };
@@ -157,7 +212,7 @@ function Leads() {
     <Container sx={{ mt: 4, mb: 6 }} maxWidth="lg">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Müşteri Adayları</Typography>
-        <Button variant="contained" onClick={() => setOpenDialog(true)}>
+        <Button variant="contained" onClick={openCreateDialog}>
           + Yeni Aday
         </Button>
       </Box>
@@ -186,7 +241,7 @@ function Leads() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Paper>
+      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <Table>
           <TableHead>
             <TableRow>
@@ -210,18 +265,27 @@ function Leads() {
             {!loading && leads.map((lead) => (
               <TableRow key={lead.id}>
                 <TableCell>{lead.name}</TableCell>
-                <TableCell>{lead.type}</TableCell>
+                <TableCell>{TYPE_LABELS[lead.type] || lead.type}</TableCell>
                 <TableCell>{lead.source}</TableCell>
                 <TableCell>{lead.email}</TableCell>
                 <TableCell>{lead.phone}</TableCell>
                 <TableCell>
-                  <Chip label={lead.status} size="small" color={lead.status === 'converted' ? 'success' : 'default'} />
+                  <Chip
+                    label={STATUS_LABELS[lead.status] || lead.status}
+                    size="small"
+                    color={lead.status === 'converted' ? 'success' : 'default'}
+                  />
                 </TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                   {lead.status !== 'converted' && (
-                    <Button size="small" onClick={() => openConvertDialog(lead)}>
-                      Fırsata Dönüştür
-                    </Button>
+                    <>
+                      <Button size="small" onClick={() => openConvertDialog(lead)}>
+                        Fırsata Dönüştür
+                      </Button>
+                      <IconButton size="small" color="primary" onClick={() => openEditDialog(lead)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </>
                   )}
                   <IconButton size="small" color="error" onClick={() => handleDelete(lead)}>
                     <DeleteIcon fontSize="small" />
@@ -240,10 +304,10 @@ function Leads() {
         </Table>
       </Paper>
 
-      {/* Yeni Aday Ekle Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Yeni Müşteri Adayı</DialogTitle>
-        <Box component="form" onSubmit={handleCreate}>
+      {/* Ekleme / Düzenleme Dialog */}
+      <Dialog open={openDialog} onClose={closeDialog} fullWidth maxWidth="xs">
+        <DialogTitle>{editingId ? 'Müşteri Adayını Düzenle' : 'Yeni Müşteri Adayı'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
           <DialogContent>
             {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
             <TextField
@@ -257,13 +321,17 @@ function Leads() {
             />
             <TextField
               fullWidth
+              select
               margin="normal"
-              label="Tür (company / individual)"
+              label="Tür"
               name="type"
               value={form.type}
               onChange={handleChange}
               required
-            />
+            >
+              <MenuItem value="company">Şirket</MenuItem>
+              <MenuItem value="individual">Şahıs</MenuItem>
+            </TextField>
             <TextField
               fullWidth
               margin="normal"
@@ -292,10 +360,29 @@ function Leads() {
               onChange={handleChange}
               required
             />
+            {editingId && (
+              <TextField
+                fullWidth
+                select
+                margin="normal"
+                label="Durum"
+                name="status"
+                value={form.status}
+                onChange={handleChange}
+              >
+                {EDITABLE_STATUSES.map((s) => (
+                  <MenuItem key={s} value={s}>
+                    {STATUS_LABELS[s]}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenDialog(false)}>İptal</Button>
-            <Button type="submit" variant="contained">Kaydet</Button>
+            <Button onClick={closeDialog}>İptal</Button>
+            <Button type="submit" variant="contained">
+              {editingId ? 'Güncelle' : 'Kaydet'}
+            </Button>
           </DialogActions>
         </Box>
       </Dialog>
