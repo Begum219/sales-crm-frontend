@@ -22,23 +22,30 @@ import {
   IconButton,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import customerService from '../services/customerService';
+
+const EMPTY_FORM = {
+  name: '',
+  customer_type: 'company',
+  industry: '',
+  status: 'active',
+  city: '',
+  phone: '',
+  email: '',
+  website: '',
+};
+
+const TYPE_LABELS = { company: 'Şirket', individual: 'Şahıs' };
+const STATUS_LABELS = { active: 'Aktif', inactive: 'Pasif' };
 
 function Customers() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
-  const [form, setForm] = useState({
-    name: '',
-    customer_type: 'company',
-    industry: '',
-    status: 'active',
-    city: '',
-    phone: '',
-    email: '',
-    website: '',
-  });
+  const [editingId, setEditingId] = useState(null); // null = yeni kayıt, sayı = düzenleme
+  const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -71,29 +78,61 @@ function Customers() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleCreate = async (e) => {
+  const openCreateDialog = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setFormError('');
+    setOpenDialog(true);
+  };
+
+  const openEditDialog = (customer) => {
+    setEditingId(customer.id);
+    setForm({
+      name: customer.name || '',
+      customer_type: customer.customer_type || 'company',
+      industry: customer.industry || '',
+      status: customer.status || 'active',
+      city: customer.city || '',
+      phone: customer.phone || '',
+      email: customer.email || '',
+      website: customer.website || '',
+    });
+    setFormError('');
+    setOpenDialog(true);
+  };
+
+  const closeDialog = () => {
+    setOpenDialog(false);
+    setEditingId(null);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+
+    // Boş bırakılan opsiyonel alanları göndermiyoruz:
+    // backend boş string'i isEmail/isURL ile reddeder.
+    const payload = {};
+    Object.entries(form).forEach(([key, value]) => {
+      if (value !== '') payload[key] = value;
+    });
+
     try {
-      await customerService.create(form);
-      setOpenDialog(false);
-      setForm({
-        name: '',
-        customer_type: 'company',
-        industry: '',
-        status: 'active',
-        city: '',
-        phone: '',
-        email: '',
-        website: '',
-      });
+      if (editingId) {
+        await customerService.update(editingId, payload);
+      } else {
+        await customerService.create(payload);
+      }
+      closeDialog();
       fetchCustomers();
     } catch (err) {
       const data = err.response?.data;
       if (data?.errors?.length) {
         setFormError(data.errors.map((e) => e.message).join(', '));
+      } else if (err.response?.status === 500) {
+        setFormError('Kayıt başarısız. Aynı ad ve sektöre sahip bir müşteri zaten var olabilir.');
       } else {
-        setFormError(data?.message || 'Kayıt eklenemedi.');
+        setFormError(data?.message || 'İşlem başarısız.');
       }
     }
   };
@@ -114,7 +153,7 @@ function Customers() {
     <Container sx={{ mt: 4, mb: 6 }} maxWidth="lg">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Müşteri Şirketleri</Typography>
-        <Button variant="contained" onClick={() => setOpenDialog(true)}>
+        <Button variant="contained" onClick={openCreateDialog}>
           + Yeni Müşteri
         </Button>
       </Box>
@@ -167,14 +206,21 @@ function Customers() {
             {!loading && customers.map((c) => (
               <TableRow key={c.id}>
                 <TableCell>{c.name}</TableCell>
-                <TableCell>{c.customer_type}</TableCell>
-                <TableCell>{c.industry}</TableCell>
-                <TableCell>{c.city}</TableCell>
-                <TableCell>{c.email}</TableCell>
+                <TableCell>{TYPE_LABELS[c.customer_type] || c.customer_type}</TableCell>
+                <TableCell>{c.industry || '-'}</TableCell>
+                <TableCell>{c.city || '-'}</TableCell>
+                <TableCell>{c.email || '-'}</TableCell>
                 <TableCell>
-                  <Chip label={c.status} size="small" />
+                  <Chip
+                    label={STATUS_LABELS[c.status] || c.status}
+                    size="small"
+                    color={c.status === 'active' ? 'success' : 'default'}
+                  />
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                  <IconButton size="small" color="primary" onClick={() => openEditDialog(c)}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
                   <IconButton size="small" color="error" onClick={() => handleDelete(c)}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
@@ -192,9 +238,9 @@ function Customers() {
         </Table>
       </Paper>
 
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Yeni Müşteri Şirketi</DialogTitle>
-        <Box component="form" onSubmit={handleCreate}>
+      <Dialog open={openDialog} onClose={closeDialog} fullWidth maxWidth="xs">
+        <DialogTitle>{editingId ? 'Müşteri Şirketini Düzenle' : 'Yeni Müşteri Şirketi'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
           <DialogContent>
             {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
             <TextField
@@ -275,8 +321,10 @@ function Customers() {
             </TextField>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenDialog(false)}>İptal</Button>
-            <Button type="submit" variant="contained">Kaydet</Button>
+            <Button onClick={closeDialog}>İptal</Button>
+            <Button type="submit" variant="contained">
+              {editingId ? 'Güncelle' : 'Kaydet'}
+            </Button>
           </DialogActions>
         </Box>
       </Dialog>
