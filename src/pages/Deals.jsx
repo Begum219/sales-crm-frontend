@@ -20,7 +20,9 @@ import {
   Alert,
   Chip,
   CircularProgress,
+  IconButton,
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import dealService from '../services/dealService';
 import customerService from '../services/customerService';
 
@@ -34,6 +36,18 @@ const STAGE_LABELS = {
   lost: 'Kaybedildi',
 };
 
+const EMPTY_FORM = {
+  customer_company_id: '',
+  title: '',
+  value: '',
+  product: '',
+  probability: '',
+  expected_close_date: '',
+};
+
+// API'den gelen "2026-09-11T21:00:00.000Z" gibi değeri input[type=date] için "2026-09-11" yapar
+const toDateInput = (value) => (value ? String(value).slice(0, 10) : '');
+
 function Deals() {
   const navigate = useNavigate();
   const [deals, setDeals] = useState([]);
@@ -41,14 +55,8 @@ function Deals() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
-  const [form, setForm] = useState({
-    customer_company_id: '',
-    title: '',
-    value: '',
-    product: '',
-    probability: '',
-    expected_close_date: '',
-  });
+  const [editingId, setEditingId] = useState(null); // null = yeni, sayı = düzenleme
+  const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -85,33 +93,65 @@ function Deals() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleCreate = async (e) => {
+  const openCreateDialog = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setFormError('');
+    setOpenDialog(true);
+  };
+
+  const openEditDialog = (deal) => {
+    setEditingId(deal.id);
+    setForm({
+      customer_company_id: deal.customer_company_id,
+      title: deal.title || '',
+      value: deal.value ?? '',
+      product: deal.product || '',
+      probability: deal.probability ?? '',
+      expected_close_date: toDateInput(deal.expected_close_date),
+    });
+    setFormError('');
+    setOpenDialog(true);
+  };
+
+  const closeDialog = () => {
+    setOpenDialog(false);
+    setEditingId(null);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
     try {
-      const payload = {
-        ...form,
-        customer_company_id: Number(form.customer_company_id),
-        value: form.value ? Number(form.value) : undefined,
-        probability: form.probability ? Number(form.probability) : undefined,
-      };
-      await dealService.create(payload);
-      setOpenDialog(false);
-      setForm({
-        customer_company_id: '',
-        title: '',
-        value: '',
-        product: '',
-        probability: '',
-        expected_close_date: '',
-      });
+      if (editingId) {
+        // Backend düzenlemede müşteri şirketini değiştirmiyor, o yüzden göndermiyoruz.
+        const payload = {
+          title: form.title,
+          value: form.value !== '' ? Number(form.value) : undefined,
+          product: form.product || undefined,
+          probability: form.probability !== '' ? Number(form.probability) : undefined,
+          expected_close_date: form.expected_close_date || undefined,
+        };
+        await dealService.update(editingId, payload);
+      } else {
+        const payload = {
+          customer_company_id: Number(form.customer_company_id),
+          title: form.title,
+          value: form.value !== '' ? Number(form.value) : undefined,
+          product: form.product || undefined,
+          probability: form.probability !== '' ? Number(form.probability) : undefined,
+          expected_close_date: form.expected_close_date || undefined,
+        };
+        await dealService.create(payload);
+      }
+      closeDialog();
       fetchAll();
     } catch (err) {
       const data = err.response?.data;
       if (data?.errors?.length) {
         setFormError(data.errors.map((e) => e.message).join(', '));
       } else {
-        setFormError(data?.message || 'Fırsat eklenemedi.');
+        setFormError(data?.message || 'İşlem başarısız.');
       }
     }
   };
@@ -128,16 +168,31 @@ function Deals() {
     }
   };
 
+  const handleMarkLost = async (deal) => {
+    if (!window.confirm(`"${deal.title}" fırsatını kaybedildi olarak işaretlemek istediğine emin misin? Bu işlem geri alınamaz.`)) {
+      return;
+    }
+    try {
+      await dealService.updateStage(deal.id, 'lost');
+      fetchAll();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Durum güncellenemedi.');
+    }
+  };
+
   const customerName = (id) => {
     const c = customers.find((c) => c.id === id);
     return c ? c.name : `#${id}`;
   };
 
+  const canAdvance = (d) =>
+    !d.is_closed && STAGE_ORDER.indexOf(d.status) !== -1 && STAGE_ORDER.indexOf(d.status) < STAGE_ORDER.length - 1;
+
   return (
     <Container sx={{ mt: 4, mb: 6 }} maxWidth="lg">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Satış Fırsatları</Typography>
-        <Button variant="contained" onClick={() => setOpenDialog(true)}>
+        <Button variant="contained" onClick={openCreateDialog}>
           + Yeni Fırsat
         </Button>
       </Box>
@@ -203,11 +258,21 @@ function Deals() {
                     color={d.status === 'won' ? 'success' : d.status === 'lost' ? 'error' : 'default'}
                   />
                 </TableCell>
-                <TableCell>
-                  {!d.is_closed && STAGE_ORDER.includes(d.status) && STAGE_ORDER.indexOf(d.status) < STAGE_ORDER.length - 1 && (
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                  {canAdvance(d) && (
                     <Button size="small" onClick={() => handleAdvanceStage(d)}>
                       Sonraki Aşama
                     </Button>
+                  )}
+                  {!d.is_closed && (
+                    <>
+                      <Button size="small" color="error" onClick={() => handleMarkLost(d)}>
+                        Kaybedildi
+                      </Button>
+                      <IconButton size="small" color="primary" onClick={() => openEditDialog(d)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </>
                   )}
                 </TableCell>
               </TableRow>
@@ -223,9 +288,9 @@ function Deals() {
         </Table>
       </Paper>
 
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Yeni Satış Fırsatı</DialogTitle>
-        <Box component="form" onSubmit={handleCreate}>
+      <Dialog open={openDialog} onClose={closeDialog} fullWidth maxWidth="xs">
+        <DialogTitle>{editingId ? 'Satış Fırsatını Düzenle' : 'Yeni Satış Fırsatı'}</DialogTitle>
+        <Box component="form" onSubmit={handleSubmit}>
           <DialogContent>
             {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
             <TextField
@@ -237,6 +302,8 @@ function Deals() {
               value={form.customer_company_id}
               onChange={handleChange}
               required
+              disabled={!!editingId}
+              helperText={editingId ? 'Müşteri şirketi sonradan değiştirilemez' : ''}
             >
               {customers.map((c) => (
                 <MenuItem key={c.id} value={c.id}>
@@ -278,6 +345,7 @@ function Deals() {
               type="number"
               value={form.probability}
               onChange={handleChange}
+              inputProps={{ min: 0, max: 100 }}
             />
             <TextField
               fullWidth
@@ -291,8 +359,10 @@ function Deals() {
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setOpenDialog(false)}>İptal</Button>
-            <Button type="submit" variant="contained">Kaydet</Button>
+            <Button onClick={closeDialog}>İptal</Button>
+            <Button type="submit" variant="contained">
+              {editingId ? 'Güncelle' : 'Kaydet'}
+            </Button>
           </DialogActions>
         </Box>
       </Dialog>
