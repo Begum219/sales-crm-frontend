@@ -29,18 +29,31 @@ const STATUS_LABELS = {
   rejected: 'Reddedildi',
 };
 
+const EMPTY_FORM = {
+  deal_id: '',
+  description: '',
+  value: '',
+  valid_until: '',
+};
+
+// "2026-09-11T21:00:00.000Z" -> "11.09.2026" (yerel saat dilimine göre)
+const formatDate = (value) => {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('tr-TR');
+};
+
+const formatMoney = (value) =>
+  `${Number(value).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
+
 function Offers() {
   const [offers, setOffers] = useState([]);
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
-  const [form, setForm] = useState({
-    deal_id: '',
-    description: '',
-    value: '',
-    valid_until: '',
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -77,18 +90,25 @@ function Offers() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const openCreateDialog = () => {
+    setForm(EMPTY_FORM);
+    setFormError('');
+    setOpenDialog(true);
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setFormError('');
     try {
       const payload = {
-        ...form,
         deal_id: Number(form.deal_id),
+        description: form.description,
         value: Number(form.value),
+        valid_until: form.valid_until || undefined,
       };
       await offerService.create(payload);
       setOpenDialog(false);
-      setForm({ deal_id: '', description: '', value: '', valid_until: '' });
+      setForm(EMPTY_FORM);
       fetchAll();
     } catch (err) {
       const data = err.response?.data;
@@ -101,6 +121,11 @@ function Offers() {
   };
 
   const handleStatusChange = async (offer, status) => {
+    const actionText = status === 'accepted' ? 'kabul etmek' : 'reddetmek';
+    const extra = status === 'accepted' ? ' Bağlı fırsat otomatik olarak "Kazanıldı" olacak.' : '';
+    if (!window.confirm(`Bu teklifi ${actionText} istediğine emin misin?${extra} Bu işlem geri alınamaz.`)) {
+      return;
+    }
     try {
       await offerService.updateStatus(offer.id, status);
       fetchAll();
@@ -114,11 +139,14 @@ function Offers() {
     return d ? d.title : `#${id}`;
   };
 
+  // Backend kapanmış fırsata teklif eklemeyi reddediyor, listede sadece açık olanlar çıksın
+  const openDeals = deals.filter((d) => !d.is_closed);
+
   return (
     <Container sx={{ mt: 4, mb: 6 }} maxWidth="lg">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4">Teklifler</Typography>
-        <Button variant="contained" onClick={() => setOpenDialog(true)}>
+        <Button variant="contained" onClick={openCreateDialog}>
           + Yeni Teklif
         </Button>
       </Box>
@@ -147,7 +175,7 @@ function Offers() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Paper>
+      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <Table>
           <TableHead>
             <TableRow>
@@ -171,8 +199,8 @@ function Offers() {
               <TableRow key={o.id}>
                 <TableCell>{dealTitle(o.deal_id)}</TableCell>
                 <TableCell>{o.description}</TableCell>
-                <TableCell>{o.value} ₺</TableCell>
-                <TableCell>{o.valid_until || '-'}</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatMoney(o.value)}</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(o.valid_until)}</TableCell>
                 <TableCell>
                   <Chip
                     label={STATUS_LABELS[o.status] || o.status}
@@ -180,7 +208,7 @@ function Offers() {
                     color={o.status === 'accepted' ? 'success' : o.status === 'rejected' ? 'error' : 'default'}
                   />
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>
                   {o.status === 'pending' && (
                     <>
                       <Button size="small" color="success" onClick={() => handleStatusChange(o, 'accepted')}>
@@ -219,8 +247,9 @@ function Offers() {
               value={form.deal_id}
               onChange={handleChange}
               required
+              helperText={openDeals.length === 0 ? 'Teklif eklenebilecek açık fırsat yok' : 'Sadece açık fırsatlar listelenir'}
             >
-              {deals.map((d) => (
+              {openDeals.map((d) => (
                 <MenuItem key={d.id} value={d.id}>
                   {d.title}
                 </MenuItem>
