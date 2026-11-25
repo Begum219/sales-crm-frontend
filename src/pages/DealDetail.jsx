@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { formatDate, formatMoney } from '../utils/format';
 import {
   Container,
   Typography,
@@ -116,7 +117,7 @@ function DealDetail() {
         <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           <Box>
             <Typography variant="caption" color="text.secondary">Değer</Typography>
-            <Typography variant="body1">{deal.value ? `${deal.value} ₺` : '-'}</Typography>
+            <Typography variant="body1">{formatMoney(deal.value)}</Typography>
           </Box>
           <Box>
             <Typography variant="caption" color="text.secondary">Ürün/Hizmet</Typography>
@@ -149,8 +150,8 @@ function DealDetail() {
             {offers.map((o) => (
               <TableRow key={o.id}>
                 <TableCell>{o.description}</TableCell>
-                <TableCell>{o.value} ₺</TableCell>
-                <TableCell>{o.valid_until || '-'}</TableCell>
+                <TableCell>{formatMoney(o.value)}</TableCell>
+                <TableCell>{formatDate(o.valid_until)}</TableCell>
                 <TableCell>
                   <Chip
                     label={OFFER_STATUS_LABELS[o.status] || o.status}
