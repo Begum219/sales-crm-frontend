@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatMoney } from '../utils/format';
 import {
   Container,
   Typography,
@@ -249,7 +250,7 @@ function Deals() {
                   </Button>
                 </TableCell>
                 <TableCell>{customerName(d.customer_company_id)}</TableCell>
-                <TableCell>{d.value ? `${d.value} ₺` : '-'}</TableCell>
+                <TableCell>{formatMoney(d.value)}</TableCell>
                 <TableCell>{d.probability ? `%${d.probability}` : '-'}</TableCell>
                 <TableCell>
                   <Chip

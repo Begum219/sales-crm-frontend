@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatDate, formatMoney } from '../utils/format';
 import {
   Container,
   Typography,
@@ -23,6 +24,7 @@ import {
 import offerService from '../services/offerService';
 import dealService from '../services/dealService';
 
+
 const STATUS_LABELS = {
   pending: 'Beklemede',
   accepted: 'Kabul Edildi',
@@ -36,16 +38,8 @@ const EMPTY_FORM = {
   valid_until: '',
 };
 
-// "2026-09-11T21:00:00.000Z" -> "11.09.2026" (yerel saat dilimine göre)
-const formatDate = (value) => {
-  if (!value) return '-';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '-';
-  return d.toLocaleDateString('tr-TR');
-};
 
-const formatMoney = (value) =>
-  `${Number(value).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
+
 
 function Offers() {
   const [offers, setOffers] = useState([]);
