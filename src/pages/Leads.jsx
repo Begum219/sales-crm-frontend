@@ -7,6 +7,7 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  TablePagination,
   Paper,
   Button,
   Box,
@@ -57,6 +58,9 @@ function Leads() {
   const [formError, setFormError] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0); // MUI'de sayfa 0'dan başlar
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
 
   const [convertLead, setConvertLead] = useState(null);
   const [customers, setCustomers] = useState([]);
@@ -68,12 +72,19 @@ function Leads() {
   });
   const [convertError, setConvertError] = useState('');
 
-  const fetchLeads = async (searchTerm = search) => {
+  const fetchLeads = async ({
+    searchTerm = search,
+    pageNum = page,
+    limit = rowsPerPage,
+  } = {}) => {
     setLoading(true);
     setError('');
     try {
-      const result = await leadService.list(searchTerm ? { search: searchTerm } : {});
+      const params = { page: pageNum + 1, limit }; // backend sayfayı 1'den başlatıyor
+      if (searchTerm) params.search = searchTerm;
+      const result = await leadService.list(params);
       setLeads(result.data || []);
+      setTotal(result.meta?.total || 0);
     } catch (err) {
       setError('Müşteri adayları yüklenemedi.');
     } finally {
@@ -89,7 +100,20 @@ function Leads() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setSearch(searchInput);
-    fetchLeads(searchInput);
+    setPage(0);
+    fetchLeads({ searchTerm: searchInput, pageNum: 0 });
+  };
+
+  const handleChangePage = (e, newPage) => {
+    setPage(newPage);
+    fetchLeads({ pageNum: newPage });
+  };
+
+  const handleChangeRowsPerPage = (e) => {
+    const newLimit = parseInt(e.target.value, 10);
+    setRowsPerPage(newLimit);
+    setPage(0);
+    fetchLeads({ pageNum: 0, limit: newLimit });
   };
 
   const handleChange = (e) => {
@@ -159,7 +183,10 @@ function Leads() {
     }
     try {
       await leadService.remove(lead.id);
-      fetchLeads();
+      // Sayfadaki son kaydı silersek bir önceki sayfaya dön
+      const targetPage = leads.length === 1 && page > 0 ? page - 1 : page;
+      setPage(targetPage);
+      fetchLeads({ pageNum: targetPage });
     } catch (err) {
       alert(err.response?.data?.message || 'Silinemedi.');
     }
@@ -175,7 +202,8 @@ function Leads() {
       product: '',
     });
     try {
-      const result = await customerService.list();
+      // Açılır listede tüm müşteriler görünsün diye yüksek limit istiyoruz
+      const result = await customerService.list({ limit: 100 });
       setCustomers(result.data || []);
     } catch {
       setCustomers([]);
@@ -231,7 +259,8 @@ function Leads() {
             onClick={() => {
               setSearchInput('');
               setSearch('');
-              fetchLeads('');
+              setPage(0);
+              fetchLeads({ searchTerm: '', pageNum: 0 });
             }}
           >
             Temizle
@@ -302,6 +331,17 @@ function Leads() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={total}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25]}
+          labelRowsPerPage="Sayfa başına satır:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count}`}
+        />
       </Paper>
 
       {/* Ekleme / Düzenleme Dialog */}
