@@ -20,12 +20,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Login sayfasındaki yanlış şifre 401'i yönlendirme yapmasın, hata mesajı görünsün
+    if (error.response?.status === 401 && window.location.pathname !== '/login') {
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
-
 export default api;
