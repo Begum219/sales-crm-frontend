@@ -25,6 +25,7 @@ React, Vite, Material UI (MUI), React Router, Axios
 git clone https://github.com/Begum219/sales-crm-frontend.git
 cd sales-crm-frontend
 npm install
+cp .env.example .env
 npm run dev
 ```
 
