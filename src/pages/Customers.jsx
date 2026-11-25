@@ -7,6 +7,7 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  TablePagination,
   Paper,
   Button,
   Box,
@@ -49,13 +50,23 @@ function Customers() {
   const [formError, setFormError] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0); // MUI'de sayfa 0'dan başlar
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
 
-  const fetchCustomers = async (searchTerm = search) => {
+  const fetchCustomers = async ({
+    searchTerm = search,
+    pageNum = page,
+    limit = rowsPerPage,
+  } = {}) => {
     setLoading(true);
     setError('');
     try {
-      const result = await customerService.list(searchTerm ? { search: searchTerm } : {});
+      const params = { page: pageNum + 1, limit }; // backend sayfayı 1'den başlatıyor
+      if (searchTerm) params.search = searchTerm;
+      const result = await customerService.list(params);
       setCustomers(result.data || []);
+      setTotal(result.meta?.total || 0);
     } catch (err) {
       setError('Müşteri şirketleri yüklenemedi.');
     } finally {
@@ -71,7 +82,20 @@ function Customers() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setSearch(searchInput);
-    fetchCustomers(searchInput);
+    setPage(0);
+    fetchCustomers({ searchTerm: searchInput, pageNum: 0 });
+  };
+
+  const handleChangePage = (e, newPage) => {
+    setPage(newPage);
+    fetchCustomers({ pageNum: newPage });
+  };
+
+  const handleChangeRowsPerPage = (e) => {
+    const newLimit = parseInt(e.target.value, 10);
+    setRowsPerPage(newLimit);
+    setPage(0);
+    fetchCustomers({ pageNum: 0, limit: newLimit });
   };
 
   const handleChange = (e) => {
@@ -143,7 +167,10 @@ function Customers() {
     }
     try {
       await customerService.remove(customer.id);
-      fetchCustomers();
+      // Sayfadaki son kaydı silersek bir önceki sayfaya dön
+      const targetPage = customers.length === 1 && page > 0 ? page - 1 : page;
+      setPage(targetPage);
+      fetchCustomers({ pageNum: targetPage });
     } catch (err) {
       alert(err.response?.data?.message || 'Silinemedi.');
     }
@@ -172,7 +199,8 @@ function Customers() {
             onClick={() => {
               setSearchInput('');
               setSearch('');
-              fetchCustomers('');
+              setPage(0);
+              fetchCustomers({ searchTerm: '', pageNum: 0 });
             }}
           >
             Temizle
@@ -236,6 +264,17 @@ function Customers() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={total}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25]}
+          labelRowsPerPage="Sayfa başına satır:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count}`}
+        />
       </Paper>
 
       <Dialog open={openDialog} onClose={closeDialog} fullWidth maxWidth="xs">
