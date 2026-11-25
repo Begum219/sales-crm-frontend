@@ -9,10 +9,11 @@ import {
   Typography,
   Alert,
 } from '@mui/material';
-import authService from '../services/authService';
+import { useAuth } from '../context/useAuth';
 
 function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [form, setForm] = useState({ companySlug: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +27,7 @@ function Login() {
     setError('');
     setLoading(true);
     try {
-      await authService.login(form);
+      await login(form);
       navigate('/dashboard');
     } catch (err) {
       const data = err.response?.data;

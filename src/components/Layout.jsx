@@ -1,7 +1,7 @@
 import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import authService from '../services/authService';
 import BusinessCenterIcon from '@mui/icons-material/BusinessCenter';
+import { useAuth } from '../context/useAuth';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/dashboard' },
@@ -14,10 +14,10 @@ const NAV_ITEMS = [
 function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const user = authService.getCurrentUser();
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    authService.logout();
+    logout();
     navigate('/login');
   };
 

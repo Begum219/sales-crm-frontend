@@ -2,25 +2,20 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import authService from './services/authService';
 import Leads from './pages/Leads';
 import Customers from './pages/Customers';
 import Deals from './pages/Deals';
 import Offers from './pages/Offers';
-import Layout from './components/Layout';
 import DealDetail from './pages/DealDetail';
-
-function ProtectedRoute({ children }) {
-  return authService.isAuthenticated() ? children : <Navigate to="/login" />;
-}
+import Layout from './components/Layout';
+import { ProtectedRoute, GuestRoute } from './components/RouteGuards';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        
+        <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+        <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
 
         <Route
           element={
@@ -35,10 +30,9 @@ function App() {
           <Route path="/deals" element={<Deals />} />
           <Route path="/deals/:id" element={<DealDetail />} />
           <Route path="/offers" element={<Offers />} />
-
         </Route>
 
-        <Route path="*" element={<Navigate to="/login" />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

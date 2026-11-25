@@ -6,7 +6,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import DescriptionIcon from '@mui/icons-material/Description';
 import PaidIcon from '@mui/icons-material/Paid';
-import authService from '../services/authService';
+import { useAuth } from '../context/useAuth';
 import leadService from '../services/leadService';
 import customerService from '../services/customerService';
 import dealService from '../services/dealService';
@@ -37,7 +37,7 @@ function StatCard({ label, value, icon, color }) {
 }
 
 function Dashboard() {
-  const user = authService.getCurrentUser();
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -124,7 +124,7 @@ function Dashboard() {
                   color="#4A90A4"
                 />
               </Grid>
-              <Grid item xs={12} sm={6} md={4}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                 <StatCard
                   label="Müşteri Şirketi"
                   value={stats.customersTotal}
