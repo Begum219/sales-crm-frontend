@@ -8,6 +8,7 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  TablePagination,
   Paper,
   Button,
   Box,
@@ -24,7 +25,6 @@ import {
 import offerService from '../services/offerService';
 import dealService from '../services/dealService';
 
-
 const STATUS_LABELS = {
   pending: 'Beklemede',
   accepted: 'Kabul Edildi',
@@ -38,9 +38,6 @@ const EMPTY_FORM = {
   valid_until: '',
 };
 
-
-
-
 function Offers() {
   const [offers, setOffers] = useState([]);
   const [deals, setDeals] = useState([]);
@@ -51,16 +48,28 @@ function Offers() {
   const [formError, setFormError] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0); // MUI'de sayfa 0'dan başlar
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
 
-  const fetchAll = async (searchTerm = search) => {
+  const fetchAll = async ({
+    searchTerm = search,
+    pageNum = page,
+    limit = rowsPerPage,
+  } = {}) => {
     setLoading(true);
     setError('');
     try {
+      const params = { page: pageNum + 1, limit }; // backend sayfayı 1'den başlatıyor
+      if (searchTerm) params.search = searchTerm;
+
+      // Fırsat listesi (ad eşleştirme ve açılır liste için) sayfalanmıyor, yüksek limit istiyoruz
       const [offersResult, dealsResult] = await Promise.all([
-        offerService.list(searchTerm ? { search: searchTerm } : {}),
-        dealService.list(),
+        offerService.list(params),
+        dealService.list({ limit: 100 }),
       ]);
       setOffers(offersResult.data || []);
+      setTotal(offersResult.meta?.total || 0);
       setDeals(dealsResult.data || []);
     } catch (err) {
       setError('Teklifler yüklenemedi.');
@@ -77,7 +86,20 @@ function Offers() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     setSearch(searchInput);
-    fetchAll(searchInput);
+    setPage(0);
+    fetchAll({ searchTerm: searchInput, pageNum: 0 });
+  };
+
+  const handleChangePage = (e, newPage) => {
+    setPage(newPage);
+    fetchAll({ pageNum: newPage });
+  };
+
+  const handleChangeRowsPerPage = (e) => {
+    const newLimit = parseInt(e.target.value, 10);
+    setRowsPerPage(newLimit);
+    setPage(0);
+    fetchAll({ pageNum: 0, limit: newLimit });
   };
 
   const handleChange = (e) => {
@@ -159,7 +181,8 @@ function Offers() {
             onClick={() => {
               setSearchInput('');
               setSearch('');
-              fetchAll('');
+              setPage(0);
+              fetchAll({ searchTerm: '', pageNum: 0 });
             }}
           >
             Temizle
@@ -225,6 +248,17 @@ function Offers() {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={total}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          rowsPerPageOptions={[5, 10, 25]}
+          labelRowsPerPage="Sayfa başına satır:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count}`}
+        />
       </Paper>
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} fullWidth maxWidth="xs">
