@@ -9,6 +9,7 @@ import Offers from './pages/Offers';
 import DealDetail from './pages/DealDetail';
 import Layout from './components/Layout';
 import { ProtectedRoute, GuestRoute } from './components/RouteGuards';
+import CustomerDetail from './pages/CustomerDetail';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
         <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+        <Route path="/customers/:id" element={<CustomerDetail />} />
 
         <Route
           element={

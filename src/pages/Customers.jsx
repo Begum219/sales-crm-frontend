@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -41,6 +42,7 @@ const TYPE_LABELS = { company: 'Şirket', individual: 'Şahıs' };
 const STATUS_LABELS = { active: 'Aktif', inactive: 'Pasif' };
 
 function Customers() {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -233,7 +235,11 @@ function Customers() {
             )}
             {!loading && customers.map((c) => (
               <TableRow key={c.id}>
-                <TableCell>{c.name}</TableCell>
+                <TableCell>
+                  <Button size="small" onClick={() => navigate(`/customers/${c.id}`)} sx={{ textTransform: 'none' }}>
+                    {c.name}
+                  </Button>
+                </TableCell>
                 <TableCell>{TYPE_LABELS[c.customer_type] || c.customer_type}</TableCell>
                 <TableCell>{c.industry || '-'}</TableCell>
                 <TableCell>{c.city || '-'}</TableCell>
