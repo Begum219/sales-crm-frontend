@@ -14,3 +14,11 @@ export const formatMoney = (value) => {
     maximumFractionDigits: 2,
   })} ₺`;
 };
+
+// "2026-11-26T13:35:00.000Z" -> "26.11.2026 16:35"
+export const formatDateTime = (value) => {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '-';
+  return d.toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' });
+};
